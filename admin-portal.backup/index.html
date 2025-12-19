@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Portal (Dev)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2X0k3Y0fDuJ4m4Q+YQe2s9p3h0P4u1w6Qv6Yw2U=" crossorigin=""/>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:20px}
+      form{max-width:600px;margin:0 auto}
+      label{display:block;margin-top:12px}
+      input,textarea{width:100%;padding:8px;margin-top:4px}
+      button{margin-top:12px;padding:10px 14px}
+      #map{height:300px;margin-top:8px}
+    </style>
+  </head>
+  <body>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h1 style="margin:0">Admin Portal <span style="font-size:16px;color:#888">(Dev)</span></h1>
+      <form id="logoutForm" method="GET" action="/admin-portal/logout" style="margin:0;">
+        <button type="submit" style="background:#e53e3e;color:#fff;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;">Logout</button>
+      </form>
+    </div>
+    <p style="color:#555">This is a development-only portal. Enter an admin email to assign the restaurant to that admin (default is from server env).</p>
+
+    <form id="restaurantForm" method="POST" action="/admin-portal/restaurants" enctype="multipart/form-data">
+      <label>Admin Email (optional)
+        <input type="email" name="adminEmail" placeholder="admin@swadhan.test" />
+      </label>
+
+      <label>Name
+        <input type="text" name="name" required />
+      </label>
+
+      <label>Description
+        <textarea name="description"></textarea>
+      </label>
+
+      <label>City
+        <input type="text" name="city" required />
+      </label>
+
+      <label>Address
+        <input type="text" name="address" required />
+      </label>
+
+      <label>Cuisine (comma separated)
+        <input type="text" name="cuisine" placeholder="Italian, Pizza" />
+      </label>
+
+      <label>Image
+        <input type="file" name="image" accept="image/*" />
+      </label>
+
+      <button type="submit">Create Restaurant</button>
+    </form>
+
+    <hr />
+    <div id="result"></div>
+
+    <h2>Live Orders (Dev)</h2>
+    <div id="ordersContainer">Loading orders...</div>
+
+    <script>
+      const form = document.getElementById('restaurantForm');
+      const result = document.getElementById('result');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        result.textContent = 'Submitting...';
+        try {
+          const res = await fetch(form.action, { method: 'POST', body: fd });
+          const json = await res.json();
+          if (res.ok) {
+            result.innerHTML = '<strong>Success:</strong> ' + JSON.stringify(json, null, 2);
+            form.reset();
+          } else {
+            result.innerHTML = '<strong>Error:</strong> ' + (json.message || JSON.stringify(json));
+          }
+        } catch (err) {
+          result.innerHTML = '<strong>Request failed:</strong> ' + err.message;
+        }
+      });
+
+      // Orders UI
+      const ordersContainer = document.getElementById('ordersContainer');
+
+      async function fetchOrders() {
+        try {
+          const res = await fetch('/admin-portal/orders');
+          const json = await res.json();
+          if (res.ok) renderOrders(json.orders || []);
+          else ordersContainer.innerHTML = '<em>Unable to load orders</em>';
+        } catch (err) {
+          ordersContainer.innerHTML = '<em>Unable to load orders</em>';
+        }
+      }
+
+      function renderOrders(orders) {
+        if (!orders.length) {
+          ordersContainer.innerHTML = '<p>No orders yet</p>';
+          return;
+        }
+        ordersContainer.innerHTML = '';
+          orders.forEach(o => {
+            const div = document.createElement('div');
+            div.style.border = '1px solid #ddd';
+            div.style.padding = '8px';
+            div.style.marginBottom = '8px';
+            const coords = o.currentLocation && o.currentLocation.lat ? `${o.currentLocation.lat}, ${o.currentLocation.lng}` : 'N/A';
+            div.innerHTML = `<strong>Order ${o._id}</strong> — ${o.totalPrice} — ${o.status} <br/> <em>${new Date(o.createdAt).toLocaleString()}</em><br/> Items: ${o.items.map(it=>it.name+ ' x' + it.qty).join(', ')}<br/>Location: ${coords}<br/>Courier: ${o.courier ? (o.courier.name || '') + ' ' + (o.courier.phone || '') : 'N/A'}`;
+
+            // action buttons
+            const btnAccept = document.createElement('button'); btnAccept.textContent = 'Accept'; btnAccept.style.marginRight = '6px';
+            btnAccept.addEventListener('click', () => updateStatus(o._id, 'accepted'));
+            const btnCancel = document.createElement('button'); btnCancel.textContent = 'Cancel'; btnCancel.style.marginRight = '6px';
+            btnCancel.addEventListener('click', () => updateStatus(o._id, 'cancelled'));
+            const assignBtn = document.createElement('button'); assignBtn.textContent = 'Assign Courier'; assignBtn.style.marginRight = '6px';
+            assignBtn.addEventListener('click', () => showAssignForm(o._id, div));
+
+            div.appendChild(document.createElement('br'));
+            div.appendChild(btnAccept);
+            div.appendChild(btnCancel);
+            div.appendChild(assignBtn);
+
+            // map placeholder
+            const mapDiv = document.createElement('div'); mapDiv.id = 'map-' + o._id; mapDiv.style.height = '200px'; mapDiv.style.marginTop = '8px';
+            div.appendChild(mapDiv);
+
+            ordersContainer.appendChild(div);
+            // initialize map if location exists
+            if (o.currentLocation && o.currentLocation.lat) {
+              initMap('map-' + o._id, o.currentLocation.lat, o.currentLocation.lng);
+            } else {
+              document.getElementById('map-' + o._id).innerHTML = '<small>No location yet</small>';
+            }
+          });
+      }
+
+      // SSE for live order alerts
+      try {
+        const es = new EventSource('/api/stream/events');
+        es.addEventListener('order_created', (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            const o = payload.order;
+            // prepend alert
+            const alertDiv = document.createElement('div');
+            alertDiv.style.background = '#fffbdd';
+            alertDiv.style.border = '1px solid #ffd324';
+            alertDiv.style.padding = '8px';
+            alertDiv.style.marginBottom = '8px';
+            alertDiv.innerHTML = `<strong>New order:</strong> ${o._id} — ${o.totalPrice}`;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+            // refresh list
+            fetchOrders();
+          } catch (err) { console.error(err); }
+        });
+        es.addEventListener('order_updated', (e) => {
+          try { fetchOrders(); } catch (err) {}
+        });
+      } catch (err) {
+        console.warn('SSE not supported');
+      }
+
+      // helper to call dev endpoints to update status
+      async function updateStatus(id, status) {
+        try {
+          const res = await fetch('/admin-portal/orders/' + id + '/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+          const json = await res.json();
+          if (res.ok) fetchOrders(); else alert('Failed: ' + (json.message || 'error'));
+        } catch (err) { alert('Request failed'); }
+      }
+
+      function showAssignForm(id, container) {
+        const form = document.createElement('div');
+        form.innerHTML = `\n          <input placeholder="Courier name" id="cname-${id}" style="margin-right:8px"/>\n          <input placeholder="Courier phone" id="cphone-${id}" style="margin-right:8px"/>\n          <button id="assign-${id}">Save</button>\n        `;
+        container.appendChild(form);
+        document.getElementById('assign-' + id).addEventListener('click', async () => {
+          const name = document.getElementById('cname-' + id).value;
+          const phone = document.getElementById('cphone-' + id).value;
+          try {
+            const res = await fetch('/admin-portal/orders/' + id + '/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courierName: name, courierPhone: phone }) });
+            const json = await res.json();
+            if (res.ok) fetchOrders(); else alert('Failed: ' + (json.message || 'error'));
+          } catch (err) { alert('Request failed'); }
+        });
+      }
+
+      // Map helpers (Leaflet)
+      function initMap(elId, lat, lng) {
+        try {
+          const L = window.L;
+          const map = L.map(elId).setView([lat, lng], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+          const marker = L.marker([lat, lng]).addTo(map);
+          // store map & marker for updates
+          if (!window.__maps) window.__maps = {};
+          window.__maps[elId] = { map, marker };
+        } catch (err) {
+          document.getElementById(elId).innerHTML = '<small>Map init failed</small>';
+        }
+      }
+
+      // update map position
+      function updateMap(elId, lat, lng) {
+        try {
+          const obj = window.__maps && window.__maps[elId];
+          if (!obj) return initMap(elId, lat, lng);
+          obj.map.setView([lat, lng], 13);
+          obj.marker.setLatLng([lat, lng]);
+        } catch (err) {}
+      }
+
+      // initial load
+      fetchOrders();
+    </script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j7g+ua3wQ3g3lT1qQ6bG6qGk5b9lWbP+0i0Z7r0=" crossorigin=""></script>
+  </body>
+</html>

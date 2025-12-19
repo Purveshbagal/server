@@ -1,0 +1,6 @@
+{"timestamp":"2025-12-11T17:50:10.422Z","level":"DEBUG","message":"Broadcast to 0 clients","event":"restaurant_created","totalClients":0}
+{"timestamp":"2025-12-11T17:51:10.957Z","level":"DEBUG","message":"Broadcast to 0 clients","event":"dish_created","totalClients":0}
+{"timestamp":"2025-12-11T19:02:18.313Z","level":"DEBUG","message":"Broadcast to 0 clients","event":"dish_created","totalClients":0}
+{"timestamp":"2025-12-14T11:06:07.000Z","level":"DEBUG","message":"Broadcast to 1 clients","event":"restaurant_created","totalClients":1}
+{"timestamp":"2025-12-14T11:07:28.846Z","level":"DEBUG","message":"Broadcast to 1 clients","event":"dish_created","totalClients":1}
+{"timestamp":"2025-12-15T14:00:42.189Z","level":"DEBUG","message":"Broadcast to 1 clients","event":"dish_created","totalClients":1}
