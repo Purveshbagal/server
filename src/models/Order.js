@@ -107,6 +107,18 @@ const orderSchema = new mongoose.Schema({
   paymentInfo: {
     type: Object,
   },
+  // Cancellation details
+  cancelledAt: {
+    type: Date,
+  },
+  cancelledBy: {
+    type: String,
+    enum: ['user', 'admin'],
+  },
+  cancellationReason: {
+    type: String,
+    trim: true,
+  },
 }, {
   timestamps: true,
 });

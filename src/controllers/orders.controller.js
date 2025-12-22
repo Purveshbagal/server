@@ -372,6 +372,84 @@ const assignNearestCourier = async (req, res) => {
   }
 };
 
+// Cancel order - accessible to user (for their own orders) or admin
+const cancelOrder = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const orderId = req.params.id;
+
+    // Fetch the order
+    const order = await Order.findById(orderId)
+      .populate('user', 'name email')
+      .populate('items.dish', 'name image');
+
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    // Check authorization: user can cancel their own orders, admin can cancel any
+    const orderUserId = order.user._id || order.user;
+    const requestUserId = req.user.id;
+    
+    console.log('Cancel order auth check:', {
+      orderUserId: orderUserId.toString(),
+      requestUserId: requestUserId.toString(),
+      userRole: req.user.role,
+      match: orderUserId.toString() === requestUserId.toString()
+    });
+
+    if (orderUserId.toString() !== requestUserId.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Cannot cancel if already delivered or cancelled
+    if (order.status === 'delivered' || order.status === 'cancelled') {
+      return res.status(400).json({ 
+        message: `Cannot cancel an order that is already ${order.status}` 
+      });
+    }
+
+    // Update order status to cancelled
+    order.status = 'cancelled';
+    order.cancelledAt = new Date();
+    order.cancelledBy = req.user.role === 'admin' ? 'admin' : 'user';
+    order.cancellationReason = reason || 'No reason provided';
+
+    await order.save();
+
+    // Broadcast cancellation event via realtime service
+    try {
+      const realtime = require('../utils/realtimeActivityService');
+      realtime.broadcastToUser(order.user._id.toString(), 'order:cancelled', { order: order.toObject() });
+      realtime.broadcastToAdmins('order:cancelled', { order: order.toObject() });
+      
+      // Create notification for admins
+      try {
+        const Notification = require('../models/Notification');
+        await Notification.create({
+          type: 'order_cancelled',
+          user: req.user.id,
+          data: order.toObject(),
+          forAdmins: true,
+        });
+      } catch (nerr) {
+        console.warn('Failed to create cancellation notification', nerr.message || nerr);
+      }
+    } catch (e) {
+      try {
+        const { sendEvent } = require('../utils/stream');
+        sendEvent('order_cancelled', { order: order.toObject() });
+      } catch (er) {}
+    }
+
+    res.json({ 
+      message: 'Order cancelled successfully',
+      order 
+    });
+  } catch (error) {
+    console.error('cancelOrder error', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrders,
@@ -379,4 +457,5 @@ module.exports = {
   updateOrderStatus,
   updateTracking,
   assignNearestCourier,
+  cancelOrder,
 };

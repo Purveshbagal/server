@@ -11,13 +11,34 @@ const dishSchema = Joi.object({
   available: Joi.boolean().optional(),
 });
 
-// Get dishes for a restaurant (public)
+// Get all dishes or dishes for a restaurant (public)
 const getDishes = async (req, res) => {
   try {
     const restaurantId = req.params.restaurantId || req.params.id || req.query.restaurant;
+    const { page = 1, limit = 20, category, cuisine, type } = req.query;
 
+    // If no restaurant ID provided, return all dishes (for category browsing)
     if (!restaurantId) {
-      return res.status(400).json({ message: 'Restaurant ID is required' });
+      let query = {};
+      
+      if (category) query.category = category;
+      if (cuisine) query.cuisine = new RegExp(cuisine, 'i');
+      if (type) query.type = new RegExp(type, 'i');
+
+      const dishes = await Dish.find(query)
+        .populate('restaurant', 'name imageUrl location city')
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .sort({ createdAt: -1 });
+
+      const total = await Dish.countDocuments(query);
+
+      return res.json({
+        dishes,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        total,
+      });
     }
 
     // Verify restaurant exists and is created by an admin

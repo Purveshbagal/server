@@ -7,6 +7,7 @@ const {
   updateOrderStatus,
   updateTracking,
   assignNearestCourier,
+  cancelOrder,
 } = require('../controllers/orders.controller');
 const { getInvoiceForOrder } = require('../controllers/invoices.controller');
 const auth = require('../middlewares/auth.middleware');
@@ -21,6 +22,8 @@ router.put('/:id/status', auth, admin, updateOrderStatus);
 router.put('/:id/track', auth, updateTracking);
 // Assign nearest available courier (admin)
 router.post('/:id/assign', auth, admin, assignNearestCourier);
+// Cancel order (user can cancel their own, admin can cancel any)
+router.post('/:id/cancel', auth, cancelOrder);
 // Get invoice for an order
 router.get('/:id/invoice', auth, getInvoiceForOrder);
 
