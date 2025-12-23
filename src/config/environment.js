@@ -6,7 +6,7 @@ const config = {
     clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   },
   database: {
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/swadhan_eats',
+    uri: process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/swadhan_eats',
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'your_jwt_secret_key',

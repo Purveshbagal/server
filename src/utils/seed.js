@@ -74,6 +74,7 @@ const seedData = async () => {
         name: 'Margherita Pizza',
         description: 'Classic pizza with tomato sauce, mozzarella, and basil',
         price: 12.99,
+        category: 'Pizza',
         imageUrl: 'uploads/dish1.jpg',
       },
       {
@@ -81,6 +82,7 @@ const seedData = async () => {
         name: 'Pepperoni Pizza',
         description: 'Pizza with pepperoni and cheese',
         price: 14.99,
+        category: 'Pizza',
         imageUrl: 'uploads/dish2.jpg',
       },
       {
@@ -88,6 +90,7 @@ const seedData = async () => {
         name: 'Garlic Bread',
         description: 'Toasted bread with garlic butter',
         price: 5.99,
+        category: 'Veg',
         imageUrl: 'uploads/dish3.jpg',
       },
       {
@@ -95,6 +98,7 @@ const seedData = async () => {
         name: 'Classic Burger',
         description: 'Beef patty with lettuce, tomato, and cheese',
         price: 9.99,
+        category: 'Non Veg',
         imageUrl: 'uploads/dish4.jpg',
       },
       {
@@ -102,6 +106,7 @@ const seedData = async () => {
         name: 'French Fries',
         description: 'Crispy golden fries',
         price: 3.99,
+        category: 'Veg',
         imageUrl: 'uploads/dish5.jpg',
       },
       {
@@ -109,6 +114,7 @@ const seedData = async () => {
         name: 'California Roll',
         description: 'Crab, avocado, and cucumber roll',
         price: 8.99,
+        category: 'Chinese',
         imageUrl: 'uploads/dish6.jpg',
       },
       {
@@ -116,6 +122,7 @@ const seedData = async () => {
         name: 'Salmon Sashimi',
         description: 'Fresh salmon slices',
         price: 15.99,
+        category: 'Chinese',
         imageUrl: 'uploads/dish7.jpg',
       },
       {
@@ -123,6 +130,7 @@ const seedData = async () => {
         name: 'Miso Soup',
         description: 'Traditional Japanese soup',
         price: 4.99,
+        category: 'Veg',
         imageUrl: 'uploads/dish8.jpg',
       },
     ];
